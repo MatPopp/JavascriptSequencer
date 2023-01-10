@@ -1,0 +1,142 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title>capture microphone audio into buffer</title>
+   
+    </head>
+    <body>
+    
+        <div id="recorder_div_1"></div>
+        <div id="recorder_div_2"></div>
+        <div id="recorder_div_3"></div>
+    
+         
+    <script type="text/javascript">
+    
+    
+        var webaudio_tooling_obj = function () {
+      
+          var audioContext = new AudioContext();
+      
+          console.log("audio is starting up ...");
+      
+          var BUFF_SIZE = 1024;
+      
+          var audioInput = null,
+              microphone_stream = null,
+              gain_node = null,
+              script_processor_node = null,
+              script_processor_fft_node = null,
+              analyserNode = null;
+      
+          if (!navigator.getUserMedia)
+                  navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
+                                navigator.mozGetUserMedia || navigator.msGetUserMedia;
+      
+          if (navigator.getUserMedia){
+      
+              navigator.getUserMedia({audio:true}, 
+                function(stream) {
+                    start_microphone(stream);
+                },
+                function(e) {
+                  alert('Error capturing audio.');
+                }
+              );
+      
+          } else { alert('getUserMedia not supported in this browser.'); }
+      
+        
+      
+          function start_microphone(stream){
+      
+            microphone_stream = audioContext.createMediaStreamSource(stream);
+      
+            script_processor_node = audioContext.createScriptProcessor(BUFF_SIZE, 1, 1);      
+            microphone_stream.connect(script_processor_node);      
+          }
+  
+          function playSound(arr) {
+            var buf = new Float32Array(arr.length)
+            for (var i = 0; i < arr.length; i++) buf[i] = arr[i]
+            var buffer = audioContext.createBuffer(1, buf.length, audioContext.sampleRate)
+            buffer.copyToChannel(buf, 0)
+            var source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+          }
+          
+          class recorder{
+            constructor(div_id){
+
+                this.arr = new Float32Array()
+                this.recording = false
+
+                this.div_id = div_id
+
+                var record_button = document.createElement("button")
+                record_button.innerText = "record"
+	            document.getElementById(this.div_id).appendChild(record_button)
+                record_button.addEventListener('click',this.startRecording)      
+
+                var stop_button = document.createElement("button")
+                stop_button.innerText = "stop"
+	            document.getElementById(this.div_id).appendChild(stop_button); 
+                stop_button.addEventListener('click',this.stopRecording)
+
+                var play_button = document.createElement("button")
+                play_button.innerText = "play"
+	            document.getElementById(this.div_id).appendChild(play_button); 
+                play_button.addEventListener('click',this.play)
+            }
+
+            startRecording = () => {
+                this.arr = []
+                this.recording = true
+                script_processor_node.onaudioprocess = this.process_microphone_buffer
+                console.log('startRecording')
+                console.log(this,this.arr)
+                }
+
+            stopRecording =  () => {
+                this.recording = false
+                script_processor_node.onaudioprocess = () => {}
+                console.log("stopRecording")
+                console.log(this,this.arr)
+                }
+
+            process_microphone_buffer = (event) => { // invoked by event loop
+                console.log(event.inputBuffer.getChannelData(0))
+                console.log(this.arr, this.arr.concat(event.inputBuffer.getChannelData(0)))
+                this.arr = this.arr.concat(event.inputBuffer.getChannelData(0)) 
+            }   
+
+            play =  () => {
+                console.log('bin in play',this.arr)
+                //flatten this.arr
+                let len =0 
+                for (let elem of this.arr){
+                    len += elem.length
+                }
+                let flat_arr = new Float32Array(len)
+                let passed = 0
+                for (let elem of this.arr){
+                    flat_arr.set(elem,passed)
+                    passed +=elem.length
+                }
+
+                console.log(flat_arr)
+
+                playSound(flat_arr)
+                }
+        }
+        rec1 = new recorder("recorder_div_1")
+        rec2 = new recorder("recorder_div_2")
+        rec3 = new recorder("recorder_div_3")
+      
+        }(); //  webaudio_tooling_obj = function()
+      
+      
+    </script>
+    </body>
+    </html>
+    
